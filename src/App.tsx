@@ -1,7 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { PLAYERS } from "./data/players";
 import { ALL_COUNTRIES } from "./data/countries";
-import { distanceKm } from "./utils/distance";
+import { distanceKm, getTemperature, temperatureEmoji } from "./utils/distance";
 import { PlayerCard } from "./components/PlayerCard";
 import { GuessInput } from "./components/GuessInput";
 import { GuessList } from "./components/GuessList";
@@ -26,14 +26,84 @@ const LEGEND = [
   { emoji: "⬛", label: "Freezing 8 000+ km" },
 ];
 
+function formatDuration(ms: number) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+const SHARE_URL = "https://worldcup.oabdullo.com";
+
+interface ShareArgs {
+  playerName: string;
+  playerCountry: string;
+  solved: boolean;
+  guesses: { distanceKm: number }[];
+  maxGuesses: number;
+  durationMs: number;
+}
+
+function buildShareText({
+  playerName,
+  playerCountry,
+  solved,
+  guesses,
+  maxGuesses,
+  durationMs,
+}: ShareArgs) {
+  const grid = guesses
+    .map((g) => temperatureEmoji(getTemperature(g.distanceKm)))
+    .join("");
+  const score = solved ? `${guesses.length}/${maxGuesses}` : `X/${maxGuesses}`;
+  return [
+    "World Cup Guesser ⚽",
+    `${playerName} (${playerCountry})`,
+    `${score} · ${formatDuration(durationMs)}`,
+    "",
+    grid,
+    "",
+    SHARE_URL,
+  ].join("\n");
+}
+
 export default function App() {
   const [player, setPlayer] = useState(pickRandom);
   const [guesses, setGuesses] = useState<Guess[]>([]);
   const [solved, setSolved] = useState(false);
+  const [startTime, setStartTime] = useState<number>(() => Date.now());
+  const [elapsedMs, setElapsedMs] = useState(0);
+  // Frozen final time captured the moment the game ends
+  const finalMsRef = useRef<number | null>(null);
+  const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "error">(
+    "idle",
+  );
+  const shareResetRef = useRef<number | null>(null);
 
   const failed = !solved && guesses.length >= MAX_GUESSES;
   const gameOver = solved || failed;
   const answerCountry = ALL_COUNTRIES.find((c) => c.name === player.country);
+
+  // Tick the timer 4x/second while the game is active
+  useEffect(() => {
+    if (gameOver) return;
+    finalMsRef.current = null;
+    const id = window.setInterval(() => {
+      setElapsedMs(Date.now() - startTime);
+    }, 250);
+    return () => window.clearInterval(id);
+  }, [startTime, gameOver]);
+
+  // Freeze the timer at game end
+  useEffect(() => {
+    if (gameOver && finalMsRef.current === null) {
+      const final = Date.now() - startTime;
+      finalMsRef.current = final;
+      setElapsedMs(final);
+    }
+  }, [gameOver, startTime]);
+
+  const displayMs = gameOver ? (finalMsRef.current ?? elapsedMs) : elapsedMs;
 
   const handleGuess = useCallback(
     (country: string) => {
@@ -59,7 +129,71 @@ export default function App() {
     setPlayer(pickRandom());
     setGuesses([]);
     setSolved(false);
+    finalMsRef.current = null;
+    setStartTime(Date.now());
+    setElapsedMs(0);
+    setShareStatus("idle");
+    if (shareResetRef.current !== null) {
+      window.clearTimeout(shareResetRef.current);
+      shareResetRef.current = null;
+    }
   }
+
+  const displayMsForShare = finalMsRef.current ?? elapsedMs;
+
+  const handleShare = useCallback(async () => {
+    const text = buildShareText({
+      playerName: player.name,
+      playerCountry: player.country,
+      solved,
+      guesses,
+      maxGuesses: MAX_GUESSES,
+      durationMs: displayMsForShare,
+    });
+
+    // Prefer native share sheet on mobile / supported browsers
+    const nav = navigator as Navigator & {
+      share?: (data: {
+        text: string;
+        title?: string;
+        url?: string;
+      }) => Promise<void>;
+    };
+
+    try {
+      if (nav.share) {
+        await nav.share({ title: "World Cup Guesser", text });
+        return;
+      }
+      await navigator.clipboard.writeText(text);
+      setShareStatus("copied");
+    } catch (err) {
+      // User cancelling the native share sheet also throws — treat as no-op.
+      if (
+        err instanceof DOMException &&
+        (err.name === "AbortError" || err.name === "NotAllowedError")
+      ) {
+        return;
+      }
+      setShareStatus("error");
+    } finally {
+      if (shareResetRef.current !== null) {
+        window.clearTimeout(shareResetRef.current);
+      }
+      shareResetRef.current = window.setTimeout(() => {
+        setShareStatus("idle");
+        shareResetRef.current = null;
+      }, 2000);
+    }
+  }, [player, solved, guesses, displayMsForShare]);
+
+  useEffect(() => {
+    return () => {
+      if (shareResetRef.current !== null) {
+        window.clearTimeout(shareResetRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div
@@ -127,45 +261,79 @@ export default function App() {
           >
             <PlayerCard player={player} revealed={gameOver} />
 
-            {/* Guess counter — 5 dots */}
+            {/* Timer + guess dots row */}
             <div
               style={{
                 display: "flex",
-                gap: "0.45rem",
-                justifyContent: "center",
-                padding: "0.25rem 0",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "0.5rem",
+                padding: "0.25rem 0.15rem",
               }}
             >
-              {Array.from({ length: MAX_GUESSES }).map((_, i) => {
-                const guess = guesses[i];
-                const isCorrect = guess && guess.distanceKm === 0;
-                const isUsed = !!guess;
-                return (
-                  <div
-                    key={i}
-                    style={{
-                      width: 30,
-                      height: 30,
-                      borderRadius: "50%",
-                      border: `2px solid ${isCorrect ? "#22c55e" : isUsed ? "#475569" : "#334155"}`,
-                      background: isCorrect
-                        ? "#14532d"
-                        : isUsed
-                          ? "#1e293b"
-                          : "transparent",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "0.72rem",
-                      fontWeight: 600,
-                      color: isCorrect ? "#86efac" : "#64748b",
-                      transition: "all 0.3s ease",
-                    }}
-                  >
-                    {isCorrect ? "✓" : isUsed ? i + 1 : ""}
-                  </div>
-                );
-              })}
+              {/* Timer pill */}
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.35rem",
+                  padding: "0.3rem 0.6rem",
+                  borderRadius: "999px",
+                  background: solved
+                    ? "#14532d"
+                    : failed
+                      ? "#450a0a"
+                      : "#1e293b",
+                  border: `1px solid ${
+                    solved ? "#22c55e" : failed ? "#ef4444" : "#334155"
+                  }`,
+                  color: solved ? "#86efac" : failed ? "#fca5a5" : "#94a3b8",
+                  fontSize: "0.78rem",
+                  fontWeight: 600,
+                  fontVariantNumeric: "tabular-nums",
+                  transition: "all 0.3s ease",
+                }}
+                aria-label="Elapsed time"
+              >
+                <span aria-hidden style={{ fontSize: "0.8rem" }}>
+                  ⏱
+                </span>
+                {formatDuration(displayMs)}
+              </div>
+
+              {/* Guess counter — 5 dots */}
+              <div style={{ display: "flex", gap: "0.4rem" }}>
+                {Array.from({ length: MAX_GUESSES }).map((_, i) => {
+                  const guess = guesses[i];
+                  const isCorrect = guess && guess.distanceKm === 0;
+                  const isUsed = !!guess;
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        width: 26,
+                        height: 26,
+                        borderRadius: "50%",
+                        border: `2px solid ${isCorrect ? "#22c55e" : isUsed ? "#475569" : "#334155"}`,
+                        background: isCorrect
+                          ? "#14532d"
+                          : isUsed
+                            ? "#1e293b"
+                            : "transparent",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "0.7rem",
+                        fontWeight: 600,
+                        color: isCorrect ? "#86efac" : "#64748b",
+                        transition: "all 0.3s ease",
+                      }}
+                    >
+                      {isCorrect ? "✓" : isUsed ? i + 1 : ""}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {solved ? (
@@ -179,10 +347,32 @@ export default function App() {
                   fontWeight: 700,
                   fontSize: "1rem",
                   textAlign: "center",
+                  lineHeight: 1.4,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.6rem",
                 }}
               >
-                ✅ Got it in {guesses.length}{" "}
-                {guesses.length === 1 ? "guess" : "guesses"}!
+                <div>
+                  ✅ Got it in {guesses.length}{" "}
+                  {guesses.length === 1 ? "guess" : "guesses"}!
+                  <div
+                    style={{
+                      fontWeight: 500,
+                      fontSize: "0.82rem",
+                      marginTop: "0.3rem",
+                      color: "#4ade80",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    Time: {formatDuration(displayMs)}
+                  </div>
+                </div>
+                <ShareButton
+                  status={shareStatus}
+                  variant="success"
+                  onClick={handleShare}
+                />
               </div>
             ) : failed ? (
               <div
@@ -196,19 +386,32 @@ export default function App() {
                   fontSize: "0.95rem",
                   textAlign: "center",
                   lineHeight: 1.4,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.6rem",
                 }}
               >
-                ❌ Out of guesses!
-                <div
-                  style={{
-                    fontWeight: 400,
-                    fontSize: "0.82rem",
-                    marginTop: "0.3rem",
-                    color: "#f87171",
-                  }}
-                >
-                  It was <strong>{player.country}</strong>
+                <div>
+                  ❌ Out of guesses!
+                  <div
+                    style={{
+                      fontWeight: 400,
+                      fontSize: "0.82rem",
+                      marginTop: "0.3rem",
+                      color: "#f87171",
+                    }}
+                  >
+                    It was <strong>{player.country}</strong> ·{" "}
+                    <span style={{ fontVariantNumeric: "tabular-nums" }}>
+                      {formatDuration(displayMs)}
+                    </span>
+                  </div>
                 </div>
+                <ShareButton
+                  status={shareStatus}
+                  variant="failure"
+                  onClick={handleShare}
+                />
               </div>
             ) : (
               <GuessInput
@@ -291,5 +494,46 @@ export default function App() {
         </div>
       </div>
     </div>
+  );
+}
+
+interface ShareButtonProps {
+  status: "idle" | "copied" | "error";
+  variant: "success" | "failure";
+  onClick: () => void;
+}
+
+function ShareButton({ status, variant, onClick }: ShareButtonProps) {
+  const isSuccess = variant === "success";
+  const baseColor = isSuccess ? "#22c55e" : "#ef4444";
+  const label =
+    status === "copied"
+      ? "Copied!"
+      : status === "error"
+        ? "Copy failed"
+        : "Share result";
+  const icon = status === "copied" ? "✓" : status === "error" ? "⚠" : "📋";
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "0.4rem",
+        padding: "0.5rem 0.9rem",
+        borderRadius: "0.55rem",
+        border: `1px solid ${baseColor}`,
+        background: "rgba(255,255,255,0.04)",
+        color: isSuccess ? "#bbf7d0" : "#fecaca",
+        fontSize: "0.85rem",
+        fontWeight: 600,
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+      }}
+    >
+      <span aria-hidden>{icon}</span>
+      {label}
+    </button>
   );
 }
