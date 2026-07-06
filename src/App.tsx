@@ -12,6 +12,8 @@ interface Guess {
   distanceKm: number;
 }
 
+const MAX_GUESSES = 5;
+
 function pickRandom() {
   return PLAYERS[Math.floor(Math.random() * PLAYERS.length)];
 }
@@ -29,11 +31,13 @@ export default function App() {
   const [guesses, setGuesses] = useState<Guess[]>([]);
   const [solved, setSolved] = useState(false);
 
+  const failed = !solved && guesses.length >= MAX_GUESSES;
+  const gameOver = solved || failed;
   const answerCountry = ALL_COUNTRIES.find((c) => c.name === player.country);
 
   const handleGuess = useCallback(
     (country: string) => {
-      if (solved) return;
+      if (gameOver) return;
       const guessCountry = ALL_COUNTRIES.find((c) => c.name === country);
       if (!guessCountry || !answerCountry) return;
       const km =
@@ -48,7 +52,7 @@ export default function App() {
       setGuesses((prev) => [...prev, { country, distanceKm: km }]);
       if (country === player.country) setSolved(true);
     },
-    [player, answerCountry, solved],
+    [player, answerCountry, gameOver],
   );
 
   function newGame() {
@@ -120,7 +124,42 @@ export default function App() {
             flex: "0 0 240px",
           }}
         >
-          <PlayerCard player={player} revealed={solved} />
+          <PlayerCard player={player} revealed={gameOver} />
+
+          {/* Guess counter — 5 dots */}
+          <div
+            style={{ display: "flex", gap: "0.4rem", justifyContent: "center" }}
+          >
+            {Array.from({ length: MAX_GUESSES }).map((_, i) => {
+              const guess = guesses[i];
+              const isCorrect = guess && guess.distanceKm === 0;
+              const isUsed = !!guess;
+              return (
+                <div
+                  key={i}
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: "50%",
+                    border: `2px solid ${isCorrect ? "#22c55e" : isUsed ? "#475569" : "#334155"}`,
+                    background: isCorrect
+                      ? "#14532d"
+                      : isUsed
+                        ? "#1e293b"
+                        : "transparent",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "0.7rem",
+                    color: isCorrect ? "#86efac" : "#64748b",
+                    transition: "all 0.3s ease",
+                  }}
+                >
+                  {isCorrect ? "✓" : isUsed ? i + 1 : ""}
+                </div>
+              );
+            })}
+          </div>
 
           {solved ? (
             <div
@@ -138,10 +177,36 @@ export default function App() {
               ✅ Got it in {guesses.length}{" "}
               {guesses.length === 1 ? "guess" : "guesses"}!
             </div>
+          ) : failed ? (
+            <div
+              style={{
+                padding: "0.85rem 1rem",
+                background: "#450a0a",
+                border: "1px solid #ef4444",
+                borderRadius: "0.75rem",
+                color: "#fca5a5",
+                fontWeight: 700,
+                fontSize: "0.95rem",
+                textAlign: "center",
+                lineHeight: 1.4,
+              }}
+            >
+              ❌ Out of guesses!
+              <div
+                style={{
+                  fontWeight: 400,
+                  fontSize: "0.82rem",
+                  marginTop: "0.25rem",
+                  color: "#f87171",
+                }}
+              >
+                It was <strong>{player.country}</strong>
+              </div>
+            </div>
           ) : (
             <GuessInput
               onGuess={handleGuess}
-              disabled={solved}
+              disabled={gameOver}
               guessedCountries={guesses.map((g) => g.country)}
             />
           )}
@@ -178,7 +243,7 @@ export default function App() {
           <WorldMap
             guesses={guesses}
             answerCountry={player.country}
-            solved={solved}
+            solved={gameOver}
           />
 
           {/* Legend below map */}
