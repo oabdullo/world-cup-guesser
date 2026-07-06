@@ -20,10 +20,10 @@ function pickRandom() {
 
 const LEGEND = [
   { emoji: "🟢", label: "Correct" },
-  { emoji: "🔴", label: "Hot  <1 500 km" },
-  { emoji: "🟠", label: "Warm  <4 000 km" },
-  { emoji: "🔵", label: "Cold  <8 000 km" },
-  { emoji: "⬛", label: "Freezing  8 000+ km" },
+  { emoji: "🔴", label: "Hot < 1 500 km" },
+  { emoji: "🟠", label: "Warm < 4 000 km" },
+  { emoji: "🔵", label: "Cold < 8 000 km" },
+  { emoji: "⬛", label: "Freezing 8 000+ km" },
 ];
 
 export default function App() {
@@ -68,202 +68,225 @@ export default function App() {
         background: "#0f172a",
         color: "#f1f5f9",
         fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        padding: "1.25rem 1rem 3rem",
-        gap: "1.25rem",
+        padding: "2rem 1.5rem 3rem",
       }}
     >
-      {/* Header */}
-      <header style={{ textAlign: "center" }}>
-        <h1
-          style={{
-            margin: 0,
-            fontSize: "clamp(1.4rem, 4vw, 2rem)",
-            fontWeight: 800,
-            background: "linear-gradient(90deg, #3b82f6, #a855f7)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-          }}
-        >
-          World Cup Guesser
-        </h1>
-        <p
-          style={{
-            margin: "0.2rem 0 0",
-            color: "#64748b",
-            fontSize: "0.82rem",
-          }}
-        >
-          Guess the player's nationality — the map shows how close you are
-        </p>
-      </header>
-
-      {/* Main two-column layout */}
       <div
         style={{
-          width: "100%",
-          maxWidth: "1100px",
+          maxWidth: "1120px",
+          margin: "0 auto",
           display: "flex",
-          gap: "1.25rem",
-          alignItems: "flex-start",
-          /* stack on narrow screens */
-          flexWrap: "wrap",
+          flexDirection: "column",
+          gap: "1.75rem",
         }}
       >
-        {/* ── Left panel ── */}
-        <div
-          style={{
-            width: 240,
-            flexShrink: 0,
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.85rem",
-            /* on narrow screens, take full width and sit above map */
-            flex: "0 0 240px",
-          }}
-        >
-          <PlayerCard player={player} revealed={gameOver} />
-
-          {/* Guess counter — 5 dots */}
-          <div
-            style={{ display: "flex", gap: "0.4rem", justifyContent: "center" }}
-          >
-            {Array.from({ length: MAX_GUESSES }).map((_, i) => {
-              const guess = guesses[i];
-              const isCorrect = guess && guess.distanceKm === 0;
-              const isUsed = !!guess;
-              return (
-                <div
-                  key={i}
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    border: `2px solid ${isCorrect ? "#22c55e" : isUsed ? "#475569" : "#334155"}`,
-                    background: isCorrect
-                      ? "#14532d"
-                      : isUsed
-                        ? "#1e293b"
-                        : "transparent",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "0.7rem",
-                    color: isCorrect ? "#86efac" : "#64748b",
-                    transition: "all 0.3s ease",
-                  }}
-                >
-                  {isCorrect ? "✓" : isUsed ? i + 1 : ""}
-                </div>
-              );
-            })}
-          </div>
-
-          {solved ? (
-            <div
-              style={{
-                padding: "0.85rem 1rem",
-                background: "#14532d",
-                border: "1px solid #22c55e",
-                borderRadius: "0.75rem",
-                color: "#86efac",
-                fontWeight: 700,
-                fontSize: "1rem",
-                textAlign: "center",
-              }}
-            >
-              ✅ Got it in {guesses.length}{" "}
-              {guesses.length === 1 ? "guess" : "guesses"}!
-            </div>
-          ) : failed ? (
-            <div
-              style={{
-                padding: "0.85rem 1rem",
-                background: "#450a0a",
-                border: "1px solid #ef4444",
-                borderRadius: "0.75rem",
-                color: "#fca5a5",
-                fontWeight: 700,
-                fontSize: "0.95rem",
-                textAlign: "center",
-                lineHeight: 1.4,
-              }}
-            >
-              ❌ Out of guesses!
-              <div
-                style={{
-                  fontWeight: 400,
-                  fontSize: "0.82rem",
-                  marginTop: "0.25rem",
-                  color: "#f87171",
-                }}
-              >
-                It was <strong>{player.country}</strong>
-              </div>
-            </div>
-          ) : (
-            <GuessInput
-              onGuess={handleGuess}
-              disabled={gameOver}
-              guessedCountries={guesses.map((g) => g.country)}
-            />
-          )}
-
-          <button
-            onClick={newGame}
+        {/* Header */}
+        <header style={{ textAlign: "center" }}>
+          <h1
             style={{
-              padding: "0.55rem 1rem",
-              borderRadius: "0.6rem",
-              border: "1px solid #334155",
-              background: "transparent",
+              margin: 0,
+              fontSize: "clamp(1.5rem, 4vw, 2.15rem)",
+              fontWeight: 800,
+              letterSpacing: "-0.01em",
+              background: "linear-gradient(90deg, #3b82f6, #a855f7)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+            }}
+          >
+            World Cup Guesser
+          </h1>
+          <p
+            style={{
+              margin: "0.4rem 0 0",
               color: "#64748b",
               fontSize: "0.85rem",
-              cursor: "pointer",
-              textAlign: "left",
             }}
           >
-            ↺ New Player
-          </button>
+            Guess the player's nationality — the map shows how close you are
+          </p>
+        </header>
 
-          <GuessList guesses={guesses} />
-        </div>
-
-        {/* ── Right panel: map + legend ── */}
+        {/* Main two-column layout */}
         <div
           style={{
-            flex: 1,
-            minWidth: 300,
             display: "flex",
-            flexDirection: "column",
-            gap: "0.75rem",
+            gap: "1.5rem",
+            alignItems: "flex-start",
+            flexWrap: "wrap",
           }}
         >
-          <WorldMap
-            guesses={guesses}
-            answerCountry={player.country}
-            solved={gameOver}
-          />
-
-          {/* Legend below map */}
+          {/* ── Left panel ── */}
           <div
             style={{
+              flex: "0 0 280px",
+              minWidth: 260,
               display: "flex",
-              gap: "0.6rem",
-              flexWrap: "wrap",
-              fontSize: "0.73rem",
-              color: "#94a3b8",
+              flexDirection: "column",
+              gap: "1rem",
             }}
           >
-            {LEGEND.map(({ emoji, label }) => (
-              <span
-                key={label}
-                style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}
+            <PlayerCard player={player} revealed={gameOver} />
+
+            {/* Guess counter — 5 dots */}
+            <div
+              style={{
+                display: "flex",
+                gap: "0.45rem",
+                justifyContent: "center",
+                padding: "0.25rem 0",
+              }}
+            >
+              {Array.from({ length: MAX_GUESSES }).map((_, i) => {
+                const guess = guesses[i];
+                const isCorrect = guess && guess.distanceKm === 0;
+                const isUsed = !!guess;
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      width: 30,
+                      height: 30,
+                      borderRadius: "50%",
+                      border: `2px solid ${isCorrect ? "#22c55e" : isUsed ? "#475569" : "#334155"}`,
+                      background: isCorrect
+                        ? "#14532d"
+                        : isUsed
+                          ? "#1e293b"
+                          : "transparent",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "0.72rem",
+                      fontWeight: 600,
+                      color: isCorrect ? "#86efac" : "#64748b",
+                      transition: "all 0.3s ease",
+                    }}
+                  >
+                    {isCorrect ? "✓" : isUsed ? i + 1 : ""}
+                  </div>
+                );
+              })}
+            </div>
+
+            {solved ? (
+              <div
+                style={{
+                  padding: "0.9rem 1rem",
+                  background: "#14532d",
+                  border: "1px solid #22c55e",
+                  borderRadius: "0.75rem",
+                  color: "#86efac",
+                  fontWeight: 700,
+                  fontSize: "1rem",
+                  textAlign: "center",
+                }}
               >
-                {emoji} {label}
-              </span>
-            ))}
+                ✅ Got it in {guesses.length}{" "}
+                {guesses.length === 1 ? "guess" : "guesses"}!
+              </div>
+            ) : failed ? (
+              <div
+                style={{
+                  padding: "0.9rem 1rem",
+                  background: "#450a0a",
+                  border: "1px solid #ef4444",
+                  borderRadius: "0.75rem",
+                  color: "#fca5a5",
+                  fontWeight: 700,
+                  fontSize: "0.95rem",
+                  textAlign: "center",
+                  lineHeight: 1.4,
+                }}
+              >
+                ❌ Out of guesses!
+                <div
+                  style={{
+                    fontWeight: 400,
+                    fontSize: "0.82rem",
+                    marginTop: "0.3rem",
+                    color: "#f87171",
+                  }}
+                >
+                  It was <strong>{player.country}</strong>
+                </div>
+              </div>
+            ) : (
+              <GuessInput
+                onGuess={handleGuess}
+                disabled={gameOver}
+                guessedCountries={guesses.map((g) => g.country)}
+              />
+            )}
+
+            <button
+              onClick={newGame}
+              style={{
+                padding: "0.6rem 1rem",
+                borderRadius: "0.6rem",
+                border: "1px solid #334155",
+                background: "transparent",
+                color: "#94a3b8",
+                fontSize: "0.85rem",
+                fontWeight: 500,
+                cursor: "pointer",
+                textAlign: "center",
+                transition: "all 0.2s ease",
+              }}
+            >
+              ↺ New Player
+            </button>
+
+            <GuessList guesses={guesses} />
+          </div>
+
+          {/* ── Right panel: map + legend ── */}
+          <div
+            style={{
+              flex: 1,
+              minWidth: 300,
+              display: "flex",
+              flexDirection: "column",
+              gap: "1rem",
+            }}
+          >
+            <WorldMap
+              guesses={guesses}
+              answerCountry={player.country}
+              solved={gameOver}
+            />
+
+            {/* Legend below map */}
+            <div
+              style={{
+                display: "flex",
+                gap: "0.4rem 1.1rem",
+                flexWrap: "wrap",
+                justifyContent: "center",
+                padding: "0.6rem 0.9rem",
+                background: "#1e293b",
+                border: "1px solid #334155",
+                borderRadius: "0.6rem",
+                fontSize: "0.74rem",
+                color: "#94a3b8",
+              }}
+            >
+              {LEGEND.map(({ emoji, label }) => (
+                <span
+                  key={label}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.35rem",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <span aria-hidden style={{ fontSize: "0.78rem" }}>
+                    {emoji}
+                  </span>
+                  {label}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </div>
