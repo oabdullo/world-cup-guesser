@@ -46,7 +46,7 @@ export function WorldMap({ guesses, answerCountry, solved }: Props) {
         topo,
         topo.objects.countries as GeometryCollection,
       );
-      setCountries((geo as { features: CountryFeature[] }).features);
+      setCountries((geo as unknown as { features: CountryFeature[] }).features);
     });
   }, []);
 
