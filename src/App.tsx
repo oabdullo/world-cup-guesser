@@ -1,11 +1,13 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { PLAYERS } from "./data/players";
 import { ALL_COUNTRIES } from "./data/countries";
 import { distanceKm, getTemperature, temperatureEmoji } from "./utils/distance";
+import { getNearbyCountries } from "./utils/nearbyCountries";
 import { PlayerCard } from "./components/PlayerCard";
 import { GuessInput } from "./components/GuessInput";
 import { GuessList } from "./components/GuessList";
 import { WorldMap } from "./components/WorldMap";
+import { RoarkSuggestions } from "./components/RoarkSuggestions";
 
 interface Guess {
   country: string;
@@ -13,6 +15,8 @@ interface Guess {
 }
 
 const MAX_GUESSES = 5;
+const ROARK_MODE_KEY = "world-cup-guesser-roark-mode";
+const ROARK_HINT_AFTER_GUESSES = 2;
 
 function pickRandom() {
   return PLAYERS[Math.floor(Math.random() * PLAYERS.length)];
@@ -79,6 +83,13 @@ export default function App() {
     "idle",
   );
   const shareResetRef = useRef<number | null>(null);
+  const [roarkMode, setRoarkMode] = useState(() => {
+    try {
+      return localStorage.getItem(ROARK_MODE_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
 
   const failed = !solved && guesses.length >= MAX_GUESSES;
   const gameOver = solved || failed;
@@ -104,6 +115,28 @@ export default function App() {
   }, [gameOver, startTime]);
 
   const displayMs = gameOver ? (finalMsRef.current ?? elapsedMs) : elapsedMs;
+
+  const roarkSuggestions = useMemo(() => {
+    if (!roarkMode || !answerCountry || gameOver) return [];
+    if (guesses.length < ROARK_HINT_AFTER_GUESSES) return [];
+    return getNearbyCountries(
+      answerCountry,
+      ALL_COUNTRIES,
+      guesses.map((g) => g.country),
+    );
+  }, [roarkMode, answerCountry, gameOver, guesses]);
+
+  function toggleRoarkMode() {
+    setRoarkMode((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(ROARK_MODE_KEY, String(next));
+      } catch {
+        // ignore storage errors
+      }
+      return next;
+    });
+  }
 
   const handleGuess = useCallback(
     (country: string) => {
@@ -238,6 +271,39 @@ export default function App() {
           >
             Guess the player's nationality — the map shows how close you are
           </p>
+          <label
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              marginTop: "0.85rem",
+              padding: "0.45rem 0.85rem",
+              borderRadius: "999px",
+              border: `1px solid ${roarkMode ? "#7c3aed" : "#334155"}`,
+              background: roarkMode ? "rgba(124, 58, 237, 0.12)" : "#1e293b",
+              color: roarkMode ? "#ddd6fe" : "#94a3b8",
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              cursor: "pointer",
+              userSelect: "none",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={roarkMode}
+              onChange={toggleRoarkMode}
+              style={{ accentColor: "#7c3aed" }}
+            />
+            Roark Mode
+            <span
+              style={{
+                fontWeight: 400,
+                color: roarkMode ? "#c4b5fd" : "#64748b",
+              }}
+            >
+              — nearby hints after 2 guesses
+            </span>
+          </label>
         </header>
 
         {/* Main two-column layout */}
@@ -414,11 +480,19 @@ export default function App() {
                 />
               </div>
             ) : (
-              <GuessInput
-                onGuess={handleGuess}
-                disabled={gameOver}
-                guessedCountries={guesses.map((g) => g.country)}
-              />
+              <>
+                <GuessInput
+                  onGuess={handleGuess}
+                  disabled={gameOver}
+                  guessedCountries={guesses.map((g) => g.country)}
+                />
+                {roarkSuggestions.length > 0 && (
+                  <RoarkSuggestions
+                    suggestions={roarkSuggestions}
+                    onSelect={handleGuess}
+                  />
+                )}
+              </>
             )}
 
             <button

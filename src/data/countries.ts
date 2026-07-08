@@ -78,6 +78,7 @@ export const WORLD_CUP_COUNTRIES: Country[] = [
   { name: "Zambia", code: "ZMB", lat: -13.1, lng: 27.8 },
   { name: "Angola", code: "AGO", lat: -11.2, lng: 17.9 },
   { name: "Comoros", code: "COM", lat: -11.6, lng: 43.3 },
+  { name: "Cape Verde", code: "CPV", lat: 16.0, lng: -24.0 },
   // AFC
   { name: "Japan", code: "JPN", lat: 36.2, lng: 138.3 },
   { name: "South Korea", code: "KOR", lat: 35.9, lng: 127.8 },
